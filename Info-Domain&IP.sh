@@ -1,245 +1,280 @@
 #!/bin/bash
 
-# collors
-black=$(tput setaf 0)
-red=$(tput setaf 1)
-green=$(tput setaf 2)
-yellow=$(tput setaf 3)
-blue=$(tput setaf 4)
-purple=$(tput setaf 5)
-cyan=$(tput setaf 6)
-white=$(tput setaf 7)
+# -----------------------------------------------------------------------------
+# Script: DNS Recon Tool
+# Author: De3fult (Yazan Ammar)
+# Version: 2.0 (Fully Functional & Refactored)
+# Description: A wrapper for various DNS enumeration tools.
+# -----------------------------------------------------------------------------
 
-RESET=$(tput sgr0)
-# خط ال Loading
-echo " "
-echo -n " Loading: ["
-for i in {1..20}; do
-    echo -n "${green}#${RESET}"
-    sleep 0.05
-done
-echo "]${green} %100${RESET}"
+# --- CONSTANTS & COLORS ---
+readonly GREEN=$(tput setaf 2)
+readonly YELLOW=$(tput setaf 3)
+readonly BLUE=$(tput setaf 4)
+readonly RED=$(tput setaf 1)
+readonly PURPLE=$(tput setaf 5)
+readonly CYAN=$(tput setaf 6)
+readonly RESET=$(tput sgr0)
+
+# --- HELPER FUNCTIONS ---
+# These functions help us avoid repeating code for printing messages.
+
+print_error() {
+    # Prints a message in red to the standard error stream.
+    echo "${RED}[ERROR] $1${RESET}" >&2
+}
+
+print_info() {
+    # Prints an informational message.
+    echo "${CYAN}[INFO] $1${RESET}"
+}
+
+print_success() {
+    # Prints a success message in green.
+    echo "${GREEN}[SUCCESS] $1${RESET}"
+}
+
+ensure_command_exists() {
+    command -v "$1" >/dev/null 2>&1 || { print_error "$1 is required but not installed. Please install it."; exit 1; }
+}
+
+# --- UI FUNCTIONS ---
+
+display_banner() {
+    clear
+    echo -n " Loading: ["
+    for i in {1..20}; do echo -n "${GREEN}#${RESET}"; sleep 0.05; done
+    echo "]${GREEN} 100%${RESET}"
+    echo " "
+    # Using a Heredoc for the banner makes it much cleaner to write and edit.
+    cat << EOF
+ ${YELLOW}-------- 
+< De3fult >
+ --------${RESET}
+   \\
+    \\\\
+     \\\\   .--.
+       |o_o |
+       |:_/ |
+      //   \\ \\
+     (|     | )
+    /'\\_   _/\\\`\\
+    \\___)=(___/
+
+EOF
+    print_success "Started successfully"
+    echo ""
+}
+
+display_main_menu() {
+    echo "${GREEN}* Welcome to the comprehensive tool for DNS information gathering.${RESET}"
+    echo "* Please select from the list below:"
+    cat << EOF
+
+ ${YELLOW}[1] ==> [Forward-Lookup]${RESET}
+ ${YELLOW}[2] ==> [Reverse-Lookup]${RESET}
+ ${YELLOW}[3] ==> [Zone-Transfers]${RESET}
+ ${YELLOW}[4] ==> [All...]${RESET}
+ ${YELLOW}[5] ==> [More-Information]${RESET}
+
+EOF
+}
+
+# --- LOGIC FUNCTIONS ---
+# Each main menu option gets its own function. This is the core of clean code.
+
+handle_forward_lookup() {
+    print_info "You Chose ==> [Forward-Lookup]"
+    read -p "Enter Target Domain (e.g., google.com): " domain
+    echo ""
+    
+    cat << EOF
+What Tool Do You Want To Use?
+
+ [1] ==> [Host]
+ [2] ==> [Dig]
+ [3] ==> [nslookup]
+ [4] ==> [Brute-Force On Subdomains]
+
+EOF
+    read -p "Enter The Number: " tool_choice
+    echo ""
+
+    case $tool_choice in
+        1)
+            print_info "Using [Host] Tool"
+            host "$domain"
+            ;;
+        2)
+            print_info "Using [Dig] Tool"
+            dig "$domain"
+            dig AAAA "$domain" | grep "AAAA"
+            ;;
+        3)
+            print_info "Using [nslookup] Tool"
+            nslookup "$domain"
+            ;;
+        4)
+            print_info "Using [Brute-Force On Subdomains]"
+            read -p "Please Enter The Wordlist Path: " wordlist
+            if [[ ! -f "$wordlist" ]]; then
+                print_error "Wordlist file not found at '$wordlist'"
+                return 1 # Exit the function with an error
+            fi
+            echo ""
+            print_info "Brute force attack is underway..."
+            for sub in $(cat "$wordlist"); do 
+                host -t A "$sub.$domain" | grep -v "not found"
+            done
+            ;;
+        *)
+            print_error "Invalid tool choice."
+            ;;
+    esac
+}
+
+handle_reverse_lookup() {
+    print_info "You Chose ==> [Reverse-Lookup]"
+    read -p "Enter Target IPv4 or IPv6: " reverse
+    echo ""
+
+    cat << EOF
+What Tool Do You Want To Use?
+
+ [1] ==> [Host]
+ [2] ==> [Dig]
+ [3] ==> [nslookup]
+ [4] ==> [Brute-Force On Subdomains]
+
+EOF
+    read -p "Enter The Number: " tool_choice
+    echo ""
+    
+    case $tool_choice in
+        1)
+            print_info "Using [Host] Tool"
+            host -t PTR "$reverse"
+            ;;
+        2)
+            print_info "Using [Dig] Tool"
+            dig -x "$reverse"
+            ;;
+        3)
+            print_info "Using [nslookup] Tool"
+            nslookup "$reverse"
+            ;;
+        4)
+            print_info "This section is still under development."
+            ;;
+        *)
+            print_error "Invalid tool choice."
+            ;;
+    esac
+}
+
+handle_zone_transfers() {
+    print_info "You Chose ==> [Zone-Transfers]"
+    read -p "Enter Target Domain: " domain
+    read -p "Enter Target Name Server (e.g., ns1.google.com): " nameserver
+    echo ""
+
+    cat << EOF
+What Tool Do You Want To Use?
+
+ [1] ==> [Host]
+ [2] ==> [Dig]
+ [3] ==> [Dnsrecon]
+ [4] ==> [Dnsenum]
+ [5] ==> [Fierce]
+
+EOF
+    read -p "Enter The Number: " tool_choice
+    echo ""
+
+    case $tool_choice in
+        1) ensure_command_exists "host"; print_info "Using [Host]"; host -l "$domain" "$nameserver" ;;
+        2) ensure_command_exists "dig"; print_info "Using [Dig]"; dig axfr "$domain" @"$nameserver" ;;
+        3) ensure_command_exists "dnsrecon"; print_info "Using [Dnsrecon]"; dnsrecon -d "$domain" -t axfr ;;
+        4) ensure_command_exists "dnsenum"; print_info "Using [Dnsenum]"; dnsenum --enum "$domain" ;;
+        5) ensure_command_exists "fierce"; print_info "Using [Fierce]"; fierce --domain "$domain" ;;
+        *) print_error "Invalid tool choice." ;;
+    esac
+}
+
+handle_all() {
+    print_info "You Chose ==> [All...]"
+    echo "${RED}Note: This field is not fully created so you may encounter some errors !!${RESET}"
+    read -p "Enter Target Domain: " domain
+    read -p "Enter Target IPv4/IPv6: " reverse
+    read -p "Enter Target Name Server: " nameserver
+    
+    # An array of commands to run
+    commands=(
+        "host $domain"
+        "nslookup $domain"
+        "host -t PTR $reverse"
+        "nslookup $reverse"
+        "host -l $domain $nameserver"
+        "dig axfr $domain @$nameserver"
+        "dnsrecon -d $domain -t axfr"
+        "fierce --domain $domain"
+        "dnsenum --enum $domain"
+    )
+
+    for cmd in "${commands[@]}"; do
+        echo "${YELLOW}==================================================${RESET}"
+        print_info "Running command: $cmd"
+        # The 'eval' command executes the command stored in the string
+        eval "$cmd"
+    done
+    echo "${YELLOW}==================================================${RESET}"
+}
 
 
+handle_more_info() {
+    cat << EOF
 
-echo " "
-echo " -------- "
-echo "< ${yellow}De3fult${RESET} >"
-echo " --------" 
-echo "   \\"
-echo "    \\"
-echo "     \\  .--."
-echo "       |o_o |"
-echo "       |:_/ |"
-echo "      //   \\ \\"
-echo "     (|     | )"
-echo "    /\'\_  _/\`\\"
-echo "    \___)=(___/"
+${YELLOW}--------------------------${RESET}
+ Tool Maker ${YELLOW}:==>${RESET} ${CYAN}[De3fult]${RESET}
+${YELLOW}--------------------------${RESET}
 
-echo " "
+ ${PURPLE}* Social Media :${RESET}
+ ${PURPLE}================${RESET}
 
+ ${GREEN}GitHub${RESET}    ==> https://github.com/yazanammar
+ ${BLUE}Telegram${RESET}  ==> https://t.me/De3fult
+ ${RED}TryHackMe${RESET} ==> https://tryhackme.com/r/p/De3fult
+ ${CYAN}Twitter${RESET}   ==> https://x.com/Yazan_o_ammar
 
+ The Tool Version : ${GREEN}V1.0${RESET}
+ Date of creation : ${GREEN}17/1/2025${RESET}
 
-echo -e "\r Started successfully"
-echo " "
-echo "${green} * Welcome to the comprehensive tool for gathering information${RESET}" 
-echo "   ${green}about IP addresses, domains, subdomains, etc...${RESET}"
-echo " "
-echo " "
-echo " * Please select from the list below :"
-echo " ${yellow} "
-echo " [1] ==> [Forward-Lookup. ]"
-echo " [2] ==> [Reverse-Lookup. ]"
-echo " [3] ==> [Zone-Transfers. ]"
-echo " [4] ==> [All...          ]"
-echo " [5] ==> [More-Information]"
-echo " ${RESET} "
-read  -p " Enter The Number:${green} ${RESET}" number
-echo " "
+EOF
+}
 
-#=================================================
+# --- SCRIPT EXECUTION ---
 
-if [[ $number == 1 ]]
-then
-echo -e " You Chose ==> [ ${purple}Forward-Lookup ${RESET}]\n"
-read  -p " Enter Target Domain (ex : ${blue}g${RESET}${red}o${RESET}${yellow}o${RESET}${blue}g${RESET}${green}l${RESET}${red}e${RESET}.com): " domain
-echo -e "\n What Tool Do You Want To Search With ??\n "
-echo " [1] ==> [Host]"
-echo " [2] ==> [Dig]"
-echo " [3] ==> [nslookup]"
-echo " [4] ==> [Brute-Force On Subdomains]"
-echo " "
-read  -p " Enter The Number: " num1
-echo " "
-fi
-if [[ $num1 == 1 ]]
-then
-echo -e " You Have Chosen [Host] Tool\n"
-    host $domain
-fi
+# 1. Check for the most basic tools first
+ensure_command_exists "tput"
 
-if [[ $num1 == 2 ]]
-then
-echo -e " You Have Chosen [Dig] Tool\n"
-    dig $domain
-dig AAAA $domain |grep "AAAA"
-fi
-if [[ $num1 == 3 ]]
-then
-echo -e " You Have Chosen [nslookup] Tool\n"
-    nslookup $domain
-fi
+# 2. Display UI
+display_banner
+display_main_menu
 
-if [[ $num1 == 4 ]]
-then
-echo -e " You Have Chosen [Brute-Force On Subdomains]\n"
-read  -p " Please Enter The Password List Path (Without Errors) : " wordlist
-echo " "
-echo -e " \n${green}Brute force attack is underway...${RESET}\n"
-for sub in $(cat $wordlist) ;do host -t A $sub.$domain | grep -v " not found"; done
-fi
+# 3. Get User Input
+read -p "Enter The Number: ${GREEN}${RESET}" number
+echo "" # Newline for cleaner output
 
-#===================================================
-if [[ $number == 2 ]]
-then
-echo " You Chose ==> [ ${red}Reverse-Lookup ${RESET}]"
-echo " "
-read  -p " Enter Target ${blue}IPv4${RESET} \"Or\" ${red}IPv6${RESET} : " reverse
-echo -e "\n What Tool Do You Want To Search With ??\n "
-echo " [1] ==> [Host]"
-echo " [2] ==> [Dig]"
-echo " [3] ==> [nslookup]"
-echo " [4] ==> [Brute-Force On Subdomains]"
-echo " "
-read  -p " Enter The Number: " num2
-echo " "
-fi
-if [[ $num2 == 1 ]]
-then
-echo -e " You Have Chosen [Host] Tool\n"
-    host -t PTR $reverse
-fi
+# 4. Handle User Choice using the main router (case statement)
+case $number in
+    1) handle_forward_lookup ;;
+    2) handle_reverse_lookup ;;
+    3) handle_zone_transfers ;;
+    4) handle_all ;;
+    5) handle_more_info ;;
+    *) print_error "Invalid selection. Please choose a number from 1 to 5." ;;
+esac
 
-if [[ $num2 == 2 ]]
-then
-echo -e " You Have Chosen [Dig] Tool\n"
-    dig -x $reverse
-    dig -x $reverse
-fi
-if [[ $num2 == 3 ]]
-then
-echo -e " You Have Chosen [nslookup] Tool\n"
-    nslookup $reverse
-fi
-
-if [[ $num2 == 4 ]]
-then
-echo -e " You Have Chosen [Brute-Force On Subdomains]\n"
-echo " ${red}This section is still under development \"not complete yet!!\"${RESET}"
-
-#read  -p " Please Enter The Password List Path (Without Errors) : " wordlist2
-#echo " "
-#for i in {1..254};do host -t PTR $reverse$i | grep -v "not found" | grep "example" ;done
-fi
-#====================================================
-#===================================================
-if [[ $number == 3 ]]
-then
-echo " You Chose ==> [ ${blue}Zone-Transfers ${RESET}]"
-echo " "
-read  -p " Enter Target Domain (ex : ${blue}g${RESET}${red}o${RESET}${yellow}o${RESET}${blue}g${RESET}${green}l${RESET}${red}e${RESET}.com): " domain
-read  -p " Enter Target name server (ex : ns1.google.com) : " nameserver
-echo -e "\n What Tool Do You Want To Search With ??\n "
-echo " [1] ==> [Host]"
-echo " [2] ==> [Dig]"
-echo " [3] ==> [Dnsrecon]"
-echo " [4] ==> [Dnsenum]"
-echo " [5] ==> [Fierce]"
-echo " "
-read  -p " Enter The Number: " num3
-echo " "
-fi
-if [[ $num3 == 1 ]]
-then
-echo -e " You Have Chosen [Host] Tool\n"
-    host -l $domain $nameserver
-fi
-
-if [[ $num3 == 2 ]]
-then
-echo -e " You Have Chosen [Dig] Tool\n"
-    dig axfr $domain @$nameserver
-fi
-if [[ $num3 == 3 ]]
-then
-echo -e " You Have Chosen [Dnsrecon] Tool\n"
-    dnsrecon -d $domain -t axfr
-fi
-
-if [[ $num3 == 4 ]]
-then
-echo -e " You Have Chosen [Dnsenum]\n"
-    dnsenum --enum $domain
-fi
-
-if [[ $num3 == 5 ]]
-then
-echo -e " You Have Chosen [Fierce] Tool\n"
-    fierce --domain $domain
-fi
-#====================================================
-if [[ $number == 4 ]]
-then
-echo " You Chose ==> [ ${red}All... ${RESET}]"
-echo " "
-echo "${red} Note: This field is not fully created so you may encounter some errors !!${RESET} "
-echo " "
-read  -p " Enter Target Domain (ex : ${blue}facebool.com${RESET}): " domain
-read  -p " Enter Target IPv4 \"Or\" IPv6 : " reverse
-read  -p " Enter Target name server (ex : ns1.google.com) : " nameserver
-echo " ================================================== "
-host $domain
-echo " ================================================== "
-nslookup $domain
-echo " ================================================== "
-host -t PTR $reverse
-echo " ================================================== "
-nslookup $reverse
-echo " ================================================== "
-host -l $domain $nameserver
-echo " ================================================== "
-dig axfr $domain @$nameserver
-echo " ================================================== "
-dnsrecon -d $domain -t axfr
-echo " ================================================== "
-fierce --domain $domain
-echo " ================================================== "
-dnsenum --enum $domain
-fi
-
-#===============================================
-
-if [[ $number == 5 ]]
-then
-echo " You Chose ==> [ ${green}More-Information ${RESET}]"
-echo " "
-echo " ${yellow}--------------------------${RESET}" 
-echo " Tool Maker ${yellow}:==>${RESET} ${cyan}[De3fult]${RESET} "
-echo " ${yellow}--------------------------${RESET}"
-echo " "
-echo " ${purple}* Social Media :${RESET}"
-echo " ${purple}================${RESET}"
-echo " "
-echo " ${green}GitHub${RESET} ==> https://github.com/yazanammar"
-echo " ${blue}Telegram${RESET} ==> https://t.me/De3fult"
-echo " ${red}TryHackMe${RESET} ==> https://tryhackme.com/r/p/De3fult "
-echo " ${cyan}Twitter${RESET} ==> https://x.com/Yazan_o_ammar "
-echo " "
-echo " The Tool Version : ${green}V1.0${RESET}"
-echo " Date of creation : ${green}17/1/2025${RESET}"
-fi
-
-if [ $number != 1 ] && [ $number != 2 ] && [ $number != 3 ] && [ $number != 4 ] && [ $number != 5 ]
-then
-    echo "${red} [Error] What do you do ??! \"You did not choose a number from 1 to 5 !!\"${RESET} "
-fi
+echo ""
+print_success "Tool finished."
+exit 0
