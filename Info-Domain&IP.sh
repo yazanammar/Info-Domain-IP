@@ -241,8 +241,8 @@ ${YELLOW}--------------------------${RESET}
  ${PURPLE}* Social Media :${RESET}
  ${PURPLE}================${RESET}
 
- ${GREEN}GitHub${RESET}    ==> https://github.com/yazanammar
- ${BLUE}Telegram${RESET}  ==> https://t.me/De3fult
+ ${GREEN}GitHub${RESET}    ==> https://github.com/YazanAmmar
+ ${BLUE}Telegram${RESET}  ==> https://t.me/Yazan_Amar
  ${RED}TryHackMe${RESET} ==> https://tryhackme.com/r/p/De3fult
  ${CYAN}Twitter${RESET}   ==> https://x.com/Yazan_o_ammar
 
