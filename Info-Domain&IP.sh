@@ -2,7 +2,7 @@
 
 # -----------------------------------------------------------------------------
 # Script: DNS Recon Tool
-# Author: De3fult (Yazan Ammar)
+# Author: (Yazan Ammar)
 # Version: 2.0 (Fully Functional & Refactored)
 # Description: A wrapper for various DNS enumeration tools.
 # -----------------------------------------------------------------------------
